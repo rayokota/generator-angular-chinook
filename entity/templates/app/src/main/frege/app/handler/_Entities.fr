@@ -85,7 +85,7 @@ createdResponse <%= name %> = do
 updatedResponse :: IO Model.<%= _.capitalize(name) %> -> IO Response
 updatedResponse <%= name %> = do
   x <- <%= name %>
-  return response.{ status  = 201 ,
+  return response.{ status  = 200 ,
                     output  = Json.render $ x,
                     headers = [ContentType.json] }
 
