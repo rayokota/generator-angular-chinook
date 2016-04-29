@@ -1,0 +1,36 @@
+{--
+  This module handles how <%= _.capitalize(name) %> instances are created
+-}
+module <%= baseName %>.data.<%= _.capitalize(pluralize(name)) %> where
+
+import Data.JSON
+import Data.List
+
+data <%= _.capitalize(name) %> = <%= _.capitalize(name) %> {
+                   id :: Long<% _.each(attrs, function (attr) { %>,
+                   <%= attr.attrName %> :: <%= attr.attrImplType %><% }); %>}
+
+derive Show <%= _.capitalize(name) %>
+
+{--
+ Converts a <%= _.capitalize(name) %> to JSON representation
+-}
+instance ToJSON <%= _.capitalize(name) %> where
+  toJSON <%= _.capitalize(name) %> {id<% _.each(attrs, function (attr) { %>, <%= attr.attrName %><% }); %>} =
+    Struct [
+      assoc "id"   id<% _.each(attrs, function (attr) { %>, 
+      assoc "<%= attr.attrName %>" <%= attr.attrName %><% }); %>
+    ]
+
+{--
+ Creates a <%= _.capitalize(name) %> from a JSON document
+-}
+instance FromJSON <%= _.capitalize(name) %> where
+  fromJSON v = case v of
+    -- PARSING OK
+    Struct s -> do
+      id   <- field "id"   s<% _.each(attrs, function (attr) { %>
+      <%= attr.attrName %> <- field "<%= attr.attrName %>" s<% }); %>
+      return <%= _.capitalize(name) %> {id<% _.each(attrs, function (attr) { %>, <%= attr.attrName %><% }); %>}
+    -- PARSING KO
+    _        ->  fail ("expected {\"name\" : ...}, found " ++ show v)

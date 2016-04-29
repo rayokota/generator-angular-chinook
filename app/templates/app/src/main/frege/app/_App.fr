@@ -1,0 +1,32 @@
+module <%= baseName %>.App where
+
+import chinook.Router
+import chinook.Chinook
+import chinook.Core
+import <%= baseName %>.init.Fixtures
+<% _.each(entities, function (entity) { %>
+import <%= baseName %>.handler.<%= _.capitalize(pluralize(entity.name)) %><% }); %>
+
+helloWorldHandler :: IO Request -> IO Response
+helloWorldHandler req = do
+   return $ response.{ output = Just "Hello World from Chinook :-)" }
+
+mappings = [
+<% _.each(entities, function (entity) { %>
+  "/<%= baseName %>/<%= pluralize(entity.name) %>" + [
+    Get    ""     <%= _.capitalize(pluralize(entity.name)) %>.list,
+    Get    "/:id" <%= _.capitalize(pluralize(entity.name)) %>.byId,
+    Post   ""     <%= _.capitalize(pluralize(entity.name)) %>.insert,
+    Put    "/:id" <%= _.capitalize(pluralize(entity.name)) %>.updateById,
+    Delete "/:id" <%= _.capitalize(pluralize(entity.name)) %>.deleteById
+    ],
+<% }); %>
+  Get "/hello" helloWorldHandler
+  ]
+
+-- Application entry point
+main _  = do
+    -- Create tables
+    createTables
+    -- Endpoints
+    Chinook.run [port 8080, staticFiles "/public"] mappings 

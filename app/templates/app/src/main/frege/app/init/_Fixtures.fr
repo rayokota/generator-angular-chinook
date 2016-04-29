@@ -1,0 +1,26 @@
+{--
+  This module creates tables if they do not already exist
+-}
+module <%= baseName %>.init.Fixtures where
+
+-- import sirocco.Sirocco
+import <%= baseName %>.sirocco.Sirocco
+import <%= baseName %>.db.Db
+
+-- tag::execute[]
+<% _.each(entities, function (entity) { %>
+create<%= _.capitalize(entity.name) %>Table :: IO ()
+create<%= _.capitalize(entity.name) %>Table = do
+  stmt   <- execute connection $ Just "CREATE TABLE <%= pluralize(entity.name) %> (id SERIAL<% _.each(entity.attrs, function (attr) { %>, <%= attr.attrName %> <%= attr.attrSqlType %><% if (attr.attrType == 'Enum' || attr.attrType == 'String') { if (attr.maxLength) { %>(<%= attr.maxLength %>)<% } else { %>(255)<% }} %><% if (attr.required) { %> NOT NULL<% }; %><% }); %>)"
+  println $ "Table <%= pluralize(entity.name) %> created"
+<% }); %>
+-- end::execute[]
+
+createTables :: IO ()
+createTables = do
+<% _.each(entities, function (entity) { %>
+  _ <- create<%= _.capitalize(entity.name) %>Table
+          `catch` \(e :: Exception) -> return ()
+          `finally` (println "Table <%= pluralize(entity.name) %> already exists.")
+<% }); %>
+  println $ "Tables created."

@@ -1,0 +1,78 @@
+{--
+  This module has all <%= _.capitalize(name) %> related queries
+-}
+module <%= baseName %>.db.<%= _.capitalize(pluralize(name)) %> where
+
+-- import sirocco.FDBC
+import <%= baseName %>.sirocco.FDBC
+-- import sirocco.Sirocco
+import <%= baseName %>.sirocco.Sirocco
+
+import <%= baseName %>.db.Db
+import <%= baseName %>.data.<%= _.capitalize(pluralize(name)) %> as Model
+
+-- tag::selectall[]
+findAll :: IO  [Model.<%= _.capitalize(name) %>]
+findAll = mapTo<%= _.capitalize(pluralize(name)) %> select
+  where sql    = Just "SELECT * FROM <%= pluralize(name) %>"
+        params = [] :: [Maybe SqlParam]
+        select = query connection sql params
+-- end::selectall[]
+
+-- tag::singleParam[]
+findById :: Maybe String -> IO (Maybe Model.<%= _.capitalize(name) %>)
+findById id = getFirst <%= pluralize(name) %>
+  where
+    sql    = Just "SELECT * FROM <%= pluralize(name) %> WHERE id = ?"
+    params = toParam <$> [id]
+    <%= pluralize(name) %>  = mapTo<%= _.capitalize(pluralize(name)) %> (query connection sql params)
+-- end::singleParam[]
+
+-- tag::mapTo<%= _.capitalize(pluralize(name)) %>[]
+--- Maps a list of rows to Model.<%= _.capitalize(name) %> instances
+mapTo<%= _.capitalize(pluralize(name)) %> :: IO [CatchAll [SqlValue]] -> IO [Model.<%= _.capitalize(name) %>]
+mapTo<%= _.capitalize(pluralize(name)) %> = mapRowsTo to<%= _.capitalize(name) %>
+
+--- Maps a single row to a Model.<%= _.capitalize(name) %> instances
+to<%= _.capitalize(name) %> :: [SqlValue] -> Model.<%= _.capitalize(name) %>
+to<%= _.capitalize(name) %> ((SqlLong id):<% _.each(attrs, function (attr) { %>(Sql<%= attr.attrImplType %> <%= attr.attrName %>):<% }); %>[]) = Model.<%= _.capitalize(name) %> { id = id<% _.each(attrs, function (attr) { %>, <%= attr.attrName %> = <%= attr.attrName %><% }); %> }
+to<%= _.capitalize(name) %> x = error $ "Error while parsing <%= _.capitalize(name) %>" ++ show x
+-- end::mapTo<%= _.capitalize(pluralize(name)) %>[]
+
+--- Gets first element of a list of records
+getFirst :: IO [a] -> IO (Maybe a)
+getFirst results = do
+  rows <- results
+  return $ case rows of
+    (x:_)  -> Just x
+    []     -> Nothing
+
+-- tag::insert<%= _.capitalize(name) %>[]
+insert<%= _.capitalize(name) %> :: Model.<%= _.capitalize(name) %> -> IO Model.<%= _.capitalize(name) %>
+insert<%= _.capitalize(name) %> <%= _.capitalize(name) %> { id<% _.each(attrs, function (attr) { %>, <%= attr.attrName %><% }); %> } = do
+    newId <- insertAndReturnGeneratedKey connection sql params
+    return Model.<%= _.capitalize(name) %> { id = newId <% _.each(attrs, function (attr) { %>, <%= attr.attrName %> = <%= attr.attrName %><% }); %> }
+  where
+    sql = Just "INSERT INTO <%= pluralize(name) %> (<% var first = true; _.each(attrs, function (attr) { %><% if (first) { first = false; } else { %>, <% }; %><%= attr.attrName %><% }); %>) VALUES (<% var first = true; _.each(attrs, function (attr) { %><% if (first) { first = false; } else { %>, <% }; %>?<% }); %>)"
+    params = [<% var first = true; _.each(attrs, function (attr) { %><% if (first) { first = false; } else { %>, <% }; %>(toParam . Just) <%= attr.attrName %><% }); %>]
+-- end::insert<%= _.capitalize(name) %>[]
+
+-- tag::update<%= _.capitalize(name) %>[]
+update<%= _.capitalize(name) %> :: Long -> Model.<%= _.capitalize(name) %> -> IO Model.<%= _.capitalize(name) %>
+update<%= _.capitalize(name) %> newId <%= _.capitalize(name) %> { id<% _.each(attrs, function (attr) { %>, <%= attr.attrName %><% }); %> } = do
+    howMany <- result
+    return Model.<%= _.capitalize(name) %> { id = newId<% _.each(attrs, function (attr) { %>, <%= attr.attrName %> = <%= attr.attrName %><% }); %> }
+  where
+    sql    = Just "UPDATE <%= pluralize(name) %> SET <% var first = true; _.each(attrs, function (attr) { %><% if (first) { first = false; } else { %>, <% }; %><%= attr.attrName %> = ?<% }); %> WHERE id = ?"
+    params = [<% _.each(attrs, function (attr) { %>(toParam . Just) <%= attr.attrName %>, <% }); %>(toParam . Just) newId]
+    result = update connection sql params
+-- end::update<%= _.capitalize(name) %>[]
+
+-- tag::delete<%= _.capitalize(name) %>[]
+delete<%= _.capitalize(name) %> :: Maybe Long -> IO Int
+delete<%= _.capitalize(name) %> id = result
+  where
+    sql    = Just "DELETE FROM <%= pluralize(name) %> WHERE id = ?"
+    params = toParam <$> [id]
+    result = update connection sql params
+-- end::delete<%= _.capitalize(name) %>[]

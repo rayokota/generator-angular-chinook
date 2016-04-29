@@ -1,0 +1,4 @@
+{
+    "directory": "<%= baseName %>/build/resources/main/public/lib",
+    "json": "bower.json"
+}

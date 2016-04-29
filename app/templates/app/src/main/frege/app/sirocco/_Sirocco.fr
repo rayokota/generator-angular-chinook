@@ -1,0 +1,180 @@
+module <%= baseName %>.sirocco.Sirocco where
+
+import <%= baseName %>.sirocco.Util
+import <%= baseName %>.sirocco.JDBC
+import <%= baseName %>.sirocco.FDBC
+
+--- Creates a new connection
+createConnection :: String -> String -> String -> IO Connection
+createConnection uri username password = DriverManager.getConnection uri username password
+
+{--
+   `SqlParam` data type represents all possible type params that
+   can be used in a sql statement.
+-}
+data SqlParam = IntParam    Int    |
+                StringParam String |
+                BoolParam   Bool   |
+                ByteParam   Byte   |
+                DoubleParam Double |
+                FloatParam  Float  |
+                LongParam   Long   |
+                ShortParam  Short  |
+                ObjectParam Object
+
+{--
+  This type class defines al possible conversions of type
+  (a -> SqlParam) through function `toParam`
+-}
+-- tag::toParam[]
+class ToParam a where
+  toParam :: Maybe a -> Maybe SqlParam
+-- end::toParam[]
+
+instance ToParam Int where
+  toParam = fmap IntParam
+
+instance ToParam String where
+  toParam = fmap StringParam
+
+instance ToParam Bool where
+  toParam = fmap BoolParam
+
+instance ToParam Byte where
+  toParam = fmap ByteParam
+
+instance ToParam Double where
+  toParam = fmap DoubleParam
+
+instance ToParam Float where
+  toParam = fmap FloatParam
+
+instance ToParam Long where
+  toParam = fmap LongParam
+
+instance ToParam Short where
+  toParam = fmap ShortParam
+
+instance ToParam Object where
+  toParam = fmap ObjectParam
+
+{--
+    Sets parameters in a PreparedStatement query. Parameters are taken from a list of
+    tuples of type (Int, Maybe a). The first integer is the position in the query and
+    the second part represents the possible value
+-}
+setParams' :: PreparedStatement -> Int -> [Maybe SqlParam] -> IO PreparedStatement
+setParams' stmt _ []            = return stmt
+setParams' stmt n (x:xs)        = case x of
+    Just param    -> do
+        mstmt     <- case param of
+            StringParam p -> useit PreparedStatement.setString   stmt n p
+            IntParam    p -> useit PreparedStatement.setInt      stmt n p
+            BoolParam   p -> useit PreparedStatement.setBoolean  stmt n p
+            ByteParam   p -> useit PreparedStatement.setByte     stmt n p
+            DoubleParam p -> useit PreparedStatement.setDouble   stmt n p
+            FloatParam  p -> useit PreparedStatement.setFloat    stmt n p
+            LongParam   p -> useit PreparedStatement.setLong     stmt n p
+            ShortParam  p -> useit PreparedStatement.setShort    stmt n p
+            ObjectParam p -> useit PreparedStatement.setObject   stmt n p
+            _             -> fail "Need SqlParam here"
+        setParams' mstmt (n+1) xs
+
+    Nothing       -> do
+        mstmt     <- useit PreparedStatement.setNull stmt n 0
+        setParams' stmt (n+1) xs
+
+useit :: (PreparedStatement -> Int -> a -> IO ()) -> PreparedStatement -> Int -> a -> IO PreparedStatement
+useit fn stmt pos value = do
+   _ <- fn stmt pos value
+   return stmt
+
+{--
+    Instance to show SqlValue instances as a String
+-}
+instance Show SqlValue where
+    show (SqlString s)    = "String: "   ++ s
+    show (SqlInt s)       = "Int: "      ++ show s
+    show (SqlLong s)      = "Long: "     ++ show s
+    show (SqlBool s)      = "Bool: "     ++ show s
+    show (SqlInteger s)   = "Integer:"   ++ show s
+    show (SqlFloat s)     = "Float:"     ++ show s
+    show (SqlDouble s)    = "Double:"    ++ show s
+    show (SqlDecimal s)   = "Decimal:"   ++ (BigDecimal.toString s)
+    show (SqlChar s)      = "Char:"      ++ show s
+    show (SqlDate s)      = "Date:"      ++ (Date.toString s)
+    show (SqlTime s)      = "Time:"      ++ (Time.toString s)
+    show (SqlTimestamp s) = "Timestamp:" ++ (Timestamp.toString s)
+    show (SqlNull)        = "Null:"
+    show t                = "Some value"
+
+{--
+    Executes a given query to modify the state of the database: create a table,
+    drop table... If the query succeed the function will return true, otherwise
+    it will return false
+-}
+-- tag::execute[]
+execute :: IO Connection -> Maybe String -> IO Bool
+-- end::execute[]
+execute connection sql = do
+  conn   <- connection
+  case sql of
+    Just q -> do
+        stmt   <- Connection.prepareStatement conn q
+        PreparedStatement.execute stmt
+    Nothing -> pure false
+
+{--
+    Executes queries of type UPDATE/INSERT. It will be returning those
+    affected rows
+-}
+-- tag::update[]
+update :: IO Connection -> Maybe String -> [Maybe SqlParam] -> IO Int
+-- end::update[]
+update connection msql parameters = do
+  conn   <- connection
+  case msql of
+    Just sql -> do
+      stmt   <- Connection.prepareStatement conn sql
+      stmt'  <- setParams' stmt 1 parameters
+      PreparedStatement.executeUpdate stmt'
+    Nothing  -> pure 0
+
+
+{--
+    Executes a query and returns a list of results
+-}
+-- tag::query[]
+query :: IO Connection -> Maybe String -> [Maybe SqlParam] -> IO [CatchAll [SqlValue]]
+-- end::query[]
+query connection msql parameters = do
+  conn   <- connection
+  case msql of
+    Just sql -> do
+      stmt   <- Connection.prepareStatement conn sql
+      stmt'  <- setParams' stmt 1 parameters
+      rows   <- PreparedStatement.executeQuery stmt'
+      takeWhileRight $ repeat $ fetchRow rows
+    Nothing -> pure []
+
+{--
+    This function maps a list of query results to a specific type of list
+-}
+-- tag::mapRowsTo[]
+mapRowsTo :: ([SqlValue] -> a) -> IO [CatchAll [SqlValue]] ->  IO [a]
+-- end::mapRowsTo[]
+mapRowsTo mapper xs = fmap fromRight $ fmap (fmap (fmap mapper)) $ fmap sequence xs
+
+{--
+   When invoking the function `fetchRow` it only ask for one row of the
+   current ResultSet. Every call to fetchRow returns an IO Right _
+   while there are records, once the records have been consumed the
+   fetchRow call will return IO Left _ records.
+-}
+takeWhileRight :: [IO (CatchAll a)] -> IO [(CatchAll a)]
+takeWhileRight (x:xs) = do
+  y <- x
+  case y of
+      Right _ -> (y:) <$> (takeWhileRight xs)
+      Left  _ -> pure []
+takeWhileRight []     = return []

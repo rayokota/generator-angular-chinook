@@ -1,0 +1,97 @@
+{--
+ This module handles requests and response for
+ <%= _.capitalize(name) %> resources.
+-}
+module <%= baseName %>.handler.<%= _.capitalize(pluralize(name)) %> where
+
+import Data.JSON
+
+import chinook.Core
+import chinook.util.ContentType
+import <%= baseName %>.db.<%= _.capitalize(pluralize(name)) %> as DB
+import <%= baseName %>.data.<%= _.capitalize(pluralize(name)) %> as Model
+import <%= baseName %>.data.Json
+
+{--
+ List all available <%= pluralize(name) %>
+-}
+list :: IO Request -> IO Response
+list req = do
+    <%= pluralize(name) %> <- DB.findAll
+    return response.{ output = Json.render <%= pluralize(name) %> }
+
+{--
+  Gets a specific <%= name %> by its id
+-}
+byId :: IO Request -> IO Response
+byId req = do
+  id     <- req.path ":id"
+  <%= name %>   <- DB.findById id
+  return $ case <%= name %> of
+    Just b  -> response.{ output = Json.render b }
+    Nothing -> badRequestResponse
+
+insert :: IO Request -> IO Response
+insert req = do
+  body  <- req.body
+  case (processJSON body) of
+    Just x -> createdResponse $ DB.insert<%= _.capitalize(name) %> $ x
+    Nothing -> return badRequestResponse
+
+updateById :: IO Request -> IO Response
+updateById req = do
+  id   <- getIdFromParam $ req.path ":id"
+  body  <- req.body
+  case (processJSON body) of
+    Just x -> case id of
+      Right idLong -> updatedResponse $ DB.update<%= _.capitalize(name) %> idLong x
+      Left  e     -> return badRequestResponse
+    Nothing -> return badRequestResponse
+
+deleteById :: IO Request -> IO Response
+deleteById req = do
+  id   <- getIdFromParam $ req.path ":id"
+  case id of
+    Right idLong -> deletedResponse $ DB.delete<%= _.capitalize(name) %> $ Just idLong
+    Left  e     -> return badRequestResponse
+
+getIdFromParam :: IO (Maybe String) -> IO (Either NumberFormatException Long)
+getIdFromParam param = do
+  id <- param
+  return $ case id of
+    Just x  -> x.long
+    Nothing -> "".long
+
+-- tag::processJSON[]
+processJSON :: Maybe String -> Maybe Model.<%= _.capitalize(name) %>
+processJSON body = do
+  text  <- body
+  json  <- parseJSON text
+  case json of
+    Model.<%= _.capitalize(name) %> { id<% _.each(attrs, function (attr) { %>, <%= attr.attrName %><% }); %> }  -> Just json
+    _                    -> Nothing
+-- end::processJSON[]
+
+badRequestResponse :: Response
+badRequestResponse = response.{ status = 400 }
+
+createdResponse :: IO Model.<%= _.capitalize(name) %> -> IO Response
+createdResponse <%= name %> = do
+  x <- <%= name %>
+  return response.{ status  = 201 ,
+                    output  = Json.render $ x,
+                    headers = [ContentType.json] }
+
+updatedResponse :: IO Model.<%= _.capitalize(name) %> -> IO Response
+updatedResponse <%= name %> = do
+  x <- <%= name %>
+  return response.{ status  = 201 ,
+                    output  = Json.render $ x,
+                    headers = [ContentType.json] }
+
+-- #TODO JSON is not shown...FIX
+deletedResponse :: IO Int -> IO Response
+deletedResponse rows = do
+  howMany <- rows
+  return response.{ status = 204,
+                    output = Json.render ("affected.rows." ++ (show howMany)) }
