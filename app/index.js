@@ -67,7 +67,6 @@ AngularChinookGenerator.prototype.app = function app() {
   var dataDir = srcDir + 'data/'
   var dbDir = srcDir + 'db/'
   var initDir = srcDir + 'init/'
-  var siroccoDir = srcDir + 'sirocco/'
   var publicDir = appDir + 'src/main/resources/public/'
   this.mkdir(gradleWrapperDir);
   this.mkdir(appDir);
@@ -75,7 +74,6 @@ AngularChinookGenerator.prototype.app = function app() {
   this.mkdir(dataDir);
   this.mkdir(dbDir);
   this.mkdir(initDir);
-  this.mkdir(siroccoDir);
   this.mkdir(publicDir);
 
   this.copy('gradle/wrapper/gradle-wrapper.jar', gradleWrapperDir + 'gradle-wrapper.jar');
@@ -89,11 +87,6 @@ AngularChinookGenerator.prototype.app = function app() {
   this.template('app/src/main/frege/app/data/_Json.fr', dataDir + 'Json.fr');
   this.template('app/src/main/frege/app/db/_Db.fr', dbDir + 'Db.fr');
   this.template('app/src/main/frege/app/init/_Fixtures.fr', initDir + 'Fixtures.fr');
-
-  this.template('app/src/main/frege/app/sirocco/_FDBC.fr', siroccoDir + 'FDBC.fr');
-  this.template('app/src/main/frege/app/sirocco/_JDBC.fr', siroccoDir + 'JDBC.fr');
-  this.template('app/src/main/frege/app/sirocco/_Sirocco.fr', siroccoDir + 'Sirocco.fr');
-  this.template('app/src/main/frege/app/sirocco/_Util.fr', siroccoDir + 'Util.fr');
 
   var publicCssDir = publicDir + 'css/';
   var publicJsDir = publicDir + 'js/';

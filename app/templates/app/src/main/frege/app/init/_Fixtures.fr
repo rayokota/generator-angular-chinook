@@ -3,8 +3,7 @@
 -}
 module <%= baseName %>.init.Fixtures where
 
--- import sirocco.Sirocco
-import <%= baseName %>.sirocco.Sirocco
+import sirocco.Sirocco
 import <%= baseName %>.db.Db
 
 -- tag::execute[]

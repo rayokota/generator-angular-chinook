@@ -3,10 +3,8 @@
 -}
 module <%= baseName %>.db.<%= _.capitalize(pluralize(name)) %> where
 
--- import sirocco.FDBC
-import <%= baseName %>.sirocco.FDBC
--- import sirocco.Sirocco
-import <%= baseName %>.sirocco.Sirocco
+import sirocco.FDBC
+import sirocco.Sirocco
 
 import <%= baseName %>.db.Db
 import <%= baseName %>.data.<%= _.capitalize(pluralize(name)) %> as Model
